@@ -5,17 +5,18 @@ using LinearAlgebra
 using Plots
 using Sundials
 using DifferentialEquations
-
+#using BenchmarkTools
+#using ProfileView
 ##
 x0 = 0.
-x1 = 100.
-N = 101
+x1 = 10.
+N = 100
 
 dx = (x1-x0)/(N-1)
 x = x0:dx:x1 
-tspan=(0.,100.)
+tspan=(0.,20.)
 
-p  = (5.0 , 5.0, 1.0 , 10.0 , 1.0 , 0.04, .8^2 , .2^2) ;
+p  = (5.0 , 5.0, 1.0 , 10.0 , 1.0 , 0.04, 2.5 , 0.05) ;
 
 
 #gr()
@@ -23,10 +24,13 @@ p  = (5.0 , 5.0, 1.0 , 10.0 , 1.0 , 0.04, .8^2 , .2^2) ;
 
 
 ## Operators
-Δx = CenteredDifference{1}(2,2,dx,N,1);
-Δy = CenteredDifference{2}(2,2,dx,N,1);
+Δx = CenteredDifference{1}(2,2,dx,N,1) ;
+Δy = CenteredDifference{2}(2,2,dx,N,1) ;
 bcx = Neumann0BC(dx,1); # left, right
 bcy = Neumann0BC(dx,1); # down, up
+
+Axx = Array(Δx*bcx)[1];
+Ayy = Array(Δy*bcy)[1] ;
 
 # GeneralBC([1.,1.],[.5,1.],dx,1) # α1 + α2*u + α3*u'... = 0
 # RobinBC((0.,1.,0.),(0.,1.,0.),dx,1)
@@ -53,15 +57,21 @@ function basic!(dr,r,p,t)
     d_pi3k = @view dr[:,:,1]
     d_pten = @view dr[:,:,2]
     d_pip3 = @view dr[:,:,3]
-    mul!(dx_pi3k,Δx,bcx*pi3k)
-    mul!(dy_pi3k,Δy,(bcy*pi3k')')
-    mul!(dx_pten,Δx,bcx*pten)
-    mul!(dy_pten,Δy,(bcy*pten')')
-    @. Δpi3k = dx_pi3k + dy_pi3k #Δx*bcx*A + Δy*(bcy*A')'
-    @. Δpten = dx_pten + dy_pten #Δx*bcx*A + Δy*(bcy*A')'
-    @. d_pi3k = D1*Δpi3k + k3*pip3*(1-pi3k) - k4*pten*pi3k
-    @. d_pten = D2*Δpten + k1*(1-pip3)*(1-pten) - k2*pi3k*pten
-    @. d_pip3 = k5*pip3*pi3k*(1-pip3) - k6*pip3*pten
+    mul!(dx_pi3k,Axx,pi3k)
+    mul!(dy_pi3k,pi3k,Ayy)
+    mul!(dx_pten,Axx,pten)
+    mul!(dy_pten,pten,Ayy)
+    # dy_pi3k= Δy*(bcy*pi3k')'
+    # dx_pi3k= Δx*bcx*pi3k
+    # dx_pten= Δx*bcx*pten
+    # dy_pten= Δy*(bcy*pten')'
+    @. Δpi3k = dx_pi3k+dy_pi3k
+    @. Δpten = dx_pten+dy_pten #Δx*bcx*pten+ (Δy*bcy)*pten
+    #@. Δpi3k = dx_pi3k + dy_pi3k #Δx*bcx*A + Δy*(bcy*A')'
+    #@. Δpten = dx_pten + dy_pten #Δx*bcx*A + Δy*(bcy*A')'
+    @. d_pi3k .= D1*Δpi3k + k3*pip3*(1-pi3k) - k4*pten*pi3k
+    @. d_pten .= D2*Δpten + k1*(1-pip3)*(1-pten) - k2*pi3k*pten
+    @. d_pip3 .= k5*pip3*pi3k*(1-pip3) - k6*pip3*pten
 end
 
 ## Initial Condition
@@ -73,16 +83,18 @@ r0[:,:,3] .= rand.();
 ##
 
 
-prob = ODEProblem(basic!,r0,tspan,p)
-sol = solve(
+prob = ODEProblem(basic!,r0,tspan,p);
+##
+
+sol =solve(
     prob,
     CVODE_BDF(linear_solver=:GMRES),
     save_everystep=false,
-    saveat = range(tspan[1],tspan[2], length=100)
+    saveat = range(tspan[1],tspan[2], length=50)
     ) ;
+
 sol.retcode|>println
 #SparseMatrixCSC(Δ)
-
 
 ##
 
@@ -119,7 +131,8 @@ anim = @animate for i=1:size(sol.t)[1]
 
     fig=plot(p1,p2,p3,p4,
         layout=grid(2,2),
-        size=(1000,800)) 
-    #savefig(fig,"results/plot"*"s$N"*".png")
+        size=(800,600)) 
+    savefig(fig,"results/plot"*"d1=$(p[end-1])_d2=$(p[end])"*".png")
 end
-gif(anim, "anim_fps15.gif", fps = 20);
+##
+gif(anim, "anim_fps15.gif", fps = 5);

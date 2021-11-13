@@ -79,7 +79,7 @@ r0[:,:,3] .= rand.(); #vss
 
 ## Problem
 prob = ODEProblem(basic!,r0,tspan,p)
-sol = solve(prob,CVODE_BDF(linear_solver=:GMRES),
+sol = @benchmark solve(prob,CVODE_BDF(linear_solver=:GMRES),
 progress=true,
 save_everystep=false,
 saveat = range(tspan[1],tspan[2], length=50)) ;
