@@ -4,14 +4,15 @@ using LinearAlgebra
 using Plots
 using Sundials
 using DifferentialEquations
+using Distributed
 ##
 x0 = 0.
 x1 = 1.
-N = 100
+N = 200
 
 dx = (x1-x0)/(N-1)
 x = x0:dx:x1 
-tspan=(0.,300.)
+tspan=(0.,100.)
 
 r0 = zeros(N,N,3);
 r0[:,:,1] .= rand.();
@@ -54,13 +55,13 @@ function basic!(dr,r,p,t)
     @. Δpten = dx_pten+dy_pten #Δx*bcx*pten+ (Δy*bcy)*pten
     #@. Δpi3k = dx_pi3k + dy_pi3k #Δx*bcx*A + Δy*(bcy*A')'
     #@. Δpten = dx_pten + dy_pten #Δx*bcx*A + Δy*(bcy*A')'
-    @. d_pi3k .= D1*Δpi3k + k3*pip3*(1-pi3k) - k4*pten*pi3k
-    @. d_pten .= D2*Δpten + k1*(1-pip3)*(1-pten) - k2*pi3k*pten
-    @. d_pip3 .= k5*pip3*pi3k*(1-pip3) - k6*pip3*pten
+    @. d_pi3k .= D1*Δpi3k + k4*(1-pi3k)*pip3 - k3*pi3k*(1-pip3)
+    @. d_pten .= D2*Δpten + k1*(1-pip3)*(1-pten) - k2*pip3*pten
+    @. d_pip3 .= k5*(1-pip3)*pi3k - k6*pip3*pten
 end
 
 function sampler(d1,d2)
-    p  = (5.0 , 5.0, 1.0 , 10.0 , 1.0 , 0.04, d1 , d2) ;
+    p  = (1.0 , 7.0, 3.0 , 10. , 0.01 , 0.1, d1, d2) ;
     prob = ODEProblem(basic!,r0,tspan,p);
     sol =solve(
         prob,
@@ -109,8 +110,8 @@ function sampler(d1,d2)
 end
 
 ##
-for i=[0.01,0.025,0.05,0.1,0.25,0.5,1.,2.5,5.0,10.]
-    for j=[0.01,0.025,0.05,0.1,0.25,0.5,1.,2.5,5.0,10.]
+for i=[0.001,0.01,0.025,0.05,0.1,0.25,0.5,1.,2.5]
+    @distributed for j=[0.001,0.01,0.025,0.05,0.1,0.25,0.5,1.,2.5]
         print(i,j)
         sampler(i,j)
     end
