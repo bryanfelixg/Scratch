@@ -18,7 +18,7 @@ tspan=(0.,100.)
 
 #p  = (1.0 , .2, .5 , 0.8 , 2. , 1., 0.0001, .05) ;
 
-p  = (1.0 , .7, .4 , 0.8 , 2. , 1., 0.0001, .05) ;
+p  = (1.0 , .7, .4 , 0.8 , 2. , 1., 0.3, 0.1, 0.0001, .05) ;
 
 
 #gr()
@@ -52,7 +52,7 @@ dy_pten = zeros(N,N)
 Δpten  = zeros(N,N)
 
 function basic!(dr,r,p,t)
-    k1,k2,k3,k4,k5,k6,D1,D2 = p
+    k1,k2,k3,k4,k5,k6,M1,M2,D1,D2,n = p
     pi3k = @view r[:,:,1]
     pten = @view r[:,:,2]
     pip3 = @view r[:,:,3]
@@ -71,8 +71,8 @@ function basic!(dr,r,p,t)
     @. Δpten = dx_pten+dy_pten #Δx*bcx*pten+ (Δy*bcy)*pten
     #@. Δpi3k = dx_pi3k + dy_pi3k #Δx*bcx*A + Δy*(bcy*A')'
     #@. Δpten = dx_pten + dy_pten #Δx*bcx*A + Δy*(bcy*A')'
-    @. d_pi3k .= D1*Δpi3k + k4*(1-pi3k)*pip3 - k3*pi3k*(1-pip3)/(.1 + (1-pip3))
-    @. d_pten .= D2*Δpten + k1*(1-pip3)*(1-pten) - k2*pten*pip3/(.3 + pip3)
+    @. d_pi3k .= D1*Δpi3k + k4*(1-pi3k)*pip3 - k3*pi3k*(1-pip3)/(M2 + (1-pip3))
+    @. d_pten .= D2*Δpten + k1*(1-pip3)*(1-pten) - k2*pten*pip3/(M1 + pip3)
     @. d_pip3 .= k5*(1-pip3)*pi3k - k6*pip3*pten
 end
 
@@ -83,7 +83,7 @@ r0[:,:,1] .= 0. # rand.();
 r0[:,:,2] .= .999;
 r0[:,:,3] .= 0. #rand.();
 
-r0[46:54,46:54,1] .= 0.99
+r0[50:50,50:50,1] .= 0.009
 
 ##
 
